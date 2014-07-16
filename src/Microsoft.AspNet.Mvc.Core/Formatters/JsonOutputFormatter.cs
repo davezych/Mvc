@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNet.HeaderValueAbstractions;
+using Microsoft.AspNet.Mvc.HeaderValueAbstractions;
 using Microsoft.AspNet.Http;
 using Newtonsoft.Json;
 

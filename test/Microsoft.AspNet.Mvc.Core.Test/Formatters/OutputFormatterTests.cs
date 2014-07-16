@@ -4,7 +4,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNet.HeaderValueAbstractions;
+using Microsoft.AspNet.Mvc.HeaderValueAbstractions;
 using Microsoft.AspNet.Http;
 using Xunit;
 
