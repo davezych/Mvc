@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Linq;
 using System.Reflection;
 using Xunit;
@@ -114,6 +115,32 @@ namespace Microsoft.AspNet.Mvc
             Assert.Equal("Prop6", helper.Name);
         }
 
+        [Theory]
+        [InlineData(typeof(int?))]
+        [InlineData(typeof(DayOfWeek?))]
+        public void PropertyHelper_WorksForNullablePrimitiveAndEnumTypes(Type nullableType)
+        {
+            // Act
+            var properties = PropertyHelper.GetProperties(nullableType);
+
+            // Assert
+            Assert.Empty(properties);
+        }
+
+        [Fact]
+        public void PropertyHelper_UnwrapsNullableTypes()
+        {
+            // Arrange
+            var myType = typeof(MyStruct?);
+
+            // Act
+            var properties = PropertyHelper.GetProperties(myType);
+
+            // Assert
+            var property = Assert.Single(properties);
+            Assert.Equal("Foo", property.Name);
+        }
+
         [Fact]
         public void PropertyHelper_WorksForStruct()
         {
@@ -188,6 +215,23 @@ namespace Microsoft.AspNet.Mvc
 
             Assert.Equal("OverridenpropAValue", propAHelper.GetValue(derived));
             Assert.Equal("propBValue", propBHelper.GetValue(derived));
+        }
+
+        [Fact]
+        public void GetProperties_ExcludesIndexersAndPropertiesWithoutPublicGetters()
+        {
+            // Arrange
+            var type = typeof(DerivedClassWithNonReadableProperties);
+
+
+            // Act
+            var result = PropertyHelper.GetProperties(type).ToArray();
+
+            // Assert
+            Assert.Equal(3, result.Length);
+            Assert.Equal("Visible", result[0].Name);
+            Assert.Equal("PropA", result[1].Name);
+            Assert.Equal("PropB", result[2].Name);
         }
 
         [Fact]
@@ -310,6 +354,33 @@ namespace Microsoft.AspNet.Mvc
                 get { return _value; }
                 set { _value = "Overriden" + value; }
             }
+        }
+
+        private class DerivedClassWithNonReadableProperties : BaseClassWithVirtual
+        {
+            public string this[int index]
+            {
+                get { return string.Empty; }
+                set { }
+            }
+
+            public int Visible { get; set; }
+
+            private string NotVisible { get; set; }
+
+            public string NotVisible2 { private get; set; }
+
+            public string NotVisible3
+            {
+                set { }
+            }
+
+            public static string NotVisible4 { get; set; }
+        }
+
+        private struct MyStruct
+        {
+            public string Foo { get; set; }
         }
     }
 }

@@ -16,7 +16,7 @@ using Microsoft.AspNet.Security.DataProtection;
 using Microsoft.Framework.OptionsModel;
 using Moq;
 
-namespace Microsoft.AspNet.Mvc.Core.Test
+namespace Microsoft.AspNet.Mvc.Core
 {
     public class DefaultTemplatesUtilities
     {
@@ -43,14 +43,38 @@ namespace Microsoft.AspNet.Mvc.Core.Test
             public string Property3 { get; set; }
         }
 
-        public static HtmlHelper GetHtmlHelper(object model,
-                                               IViewEngine viewEngine = null)
+        public static HtmlHelper<ObjectTemplateModel> GetHtmlHelper()
         {
-            var provider = new DataAnnotationsModelMetadataProvider();
-            var viewData = new ViewDataDictionary(provider);
+            return GetHtmlHelper<ObjectTemplateModel>(null);
+        }
+
+        public static HtmlHelper<TModel> GetHtmlHelper<TModel>(TModel model)
+        {
+            return GetHtmlHelper(model, CreateViewEngine());
+        }
+
+        public static HtmlHelper<ObjectTemplateModel> GetHtmlHelper(IModelMetadataProvider provider)
+        {
+            return GetHtmlHelper<ObjectTemplateModel>(null, provider);
+        }
+
+        public static HtmlHelper<TModel> GetHtmlHelper<TModel>(TModel model, IModelMetadataProvider provider)
+        {
+            return GetHtmlHelper(model, CreateViewEngine(), provider);
+        }
+
+        public static HtmlHelper<TModel> GetHtmlHelper<TModel>(TModel model, ICompositeViewEngine viewEngine)
+        {
+            return GetHtmlHelper(model, viewEngine, new DataAnnotationsModelMetadataProvider());
+        }
+
+        public static HtmlHelper<TModel> GetHtmlHelper<TModel>(
+            TModel model,
+            ICompositeViewEngine viewEngine,
+            IModelMetadataProvider provider)
+        {
+            var viewData = new ViewDataDictionary<TModel>(provider);
             viewData.Model = model;
-            viewData.ModelMetadata =
-                provider.GetMetadataForType(() => model, typeof(ObjectTemplateModel));
 
             var httpContext = new Mock<HttpContext>();
             httpContext
@@ -59,8 +83,6 @@ namespace Microsoft.AspNet.Mvc.Core.Test
             httpContext
                 .Setup(o => o.Items)
                 .Returns(new Dictionary<object, object>());
-
-            viewEngine = viewEngine ?? CreateViewEngine();
 
             var actionContext = new ActionContext(httpContext.Object,
                                       new RouteData(),
@@ -80,7 +102,7 @@ namespace Microsoft.AspNet.Mvc.Core.Test
 
             var serviceProvider = new Mock<IServiceProvider>();
             serviceProvider
-                .Setup(s => s.GetService(typeof(IViewEngine)))
+                .Setup(s => s.GetService(typeof(ICompositeViewEngine)))
                 .Returns(viewEngine);
             serviceProvider
                 .Setup(s => s.GetService(typeof(IUrlHelper)))
@@ -88,30 +110,35 @@ namespace Microsoft.AspNet.Mvc.Core.Test
             serviceProvider
                 .Setup(s => s.GetService(typeof(IViewComponentHelper)))
                 .Returns(new Mock<IViewComponentHelper>().Object);
- 
+
             httpContext
                 .Setup(o => o.RequestServices)
                 .Returns(serviceProvider.Object);
 
             var viewContext = new ViewContext(actionContext, Mock.Of<IView>(), viewData, new StringWriter());
 
-            var htmlHelper = new HtmlHelper(
-                                    viewEngine,
-                                    provider,
-                                    urlHelper,
-                                    GetAntiForgeryInstance(),
-                                    actionBindingContextProvider.Object);
-            htmlHelper.Contextualize(viewContext);
-
+            // TemplateRenderer will Contextualize this transient service.
             serviceProvider
                 .Setup(s => s.GetService(typeof(IHtmlHelper)))
-                .Returns(htmlHelper);
+                .Returns(() => new HtmlHelper(
+                    viewEngine,
+                    provider,
+                    urlHelper,
+                    GetAntiForgeryInstance(),
+                    actionBindingContextProvider.Object));
 
+            var htmlHelper = new HtmlHelper<TModel>(
+                viewEngine,
+                provider,
+                urlHelper,
+                GetAntiForgeryInstance(),
+                actionBindingContextProvider.Object);
+            htmlHelper.Contextualize(viewContext);
 
             return htmlHelper;
         }
 
-        private static IViewEngine CreateViewEngine()
+        private static ICompositeViewEngine CreateViewEngine()
         {
             var view = new Mock<IView>();
             view
@@ -122,10 +149,11 @@ namespace Microsoft.AspNet.Mvc.Core.Test
                 })
                 .Returns(Task.FromResult(0));
 
-            var viewEngine = new Mock<IViewEngine>();
+            var viewEngine = new Mock<ICompositeViewEngine>();
             viewEngine
                 .Setup(v => v.FindPartialView(It.IsAny<Dictionary<string, object>>(), It.IsAny<string>()))
                 .Returns(ViewEngineResult.Found("MyView", view.Object));
+
             return viewEngine.Object;
         }
 

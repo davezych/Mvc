@@ -9,13 +9,16 @@ namespace Microsoft.AspNet.Mvc
 {
     public class TemplateInfo
     {
+        private string _htmlFieldPrefix;
+        private object _formattedModelValue;
+
         // Keep a collection of visited objects to prevent infinite recursion.
         private HashSet<object> _visitedObjects;
 
         public TemplateInfo()
         {
-            FormattedModelValue = string.Empty;
-            HtmlFieldPrefix = string.Empty;
+            _htmlFieldPrefix = string.Empty;
+            _formattedModelValue = string.Empty;
             _visitedObjects = new HashSet<object>();
         }
 
@@ -26,9 +29,32 @@ namespace Microsoft.AspNet.Mvc
             _visitedObjects = new HashSet<object>(original._visitedObjects);
         }
 
-        public object FormattedModelValue { get; set; }
+        /// <summary>
+        /// Gets or sets the formatted model value.
+        /// </summary>
+        /// <remarks>
+        /// Will never return <c>null</c> to avoid problems when using HTML helpers within a template.  Otherwise the
+        /// helpers could find elements in the `ViewDataDictionary`, not the intended Model properties.
+        /// </remarks>
+        /// <value>The formatted model value.</value>
+        public object FormattedModelValue
+        {
+            get { return _formattedModelValue; }
+            set { _formattedModelValue = value ?? string.Empty; }
+        }
 
-        public string HtmlFieldPrefix { get; set; }
+        /// <summary>
+        /// Gets or sets the HTML field prefix.
+        /// </summary>
+        /// <remarks>
+        /// Will never return <c>null</c> for consistency with <see cref="FormattedModelValue"/>.
+        /// </remarks>
+        /// <value>The HTML field prefix.</value>
+        public string HtmlFieldPrefix
+        {
+            get { return _htmlFieldPrefix; }
+            set { _htmlFieldPrefix = value ?? string.Empty; }
+        }
 
         public int TemplateDepth
         {

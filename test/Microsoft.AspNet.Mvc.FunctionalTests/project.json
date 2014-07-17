@@ -5,6 +5,7 @@
     "dependencies": {
         "ActivatorWebSite": "",
         "BasicWebSite": "",
+        "CompositeViewEngine":  "",
         "InlineConstraintsWebSite": "",
         "Microsoft.AspNet.TestHost": "1.0.0-*",
         "Microsoft.AspNet.Mvc.TestConfiguration": "",
@@ -18,7 +19,7 @@
     "commands": {
         "test": "Xunit.KRunner"
     },
-    "configurations": {
+    "frameworks": {
         "net45": {
             "dependencies": {
                 "AutofacWebSite": ""
