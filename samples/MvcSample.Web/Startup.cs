@@ -5,11 +5,15 @@ using Microsoft.Framework.ConfigurationModel;
 using Microsoft.Framework.DependencyInjection;
 using MvcSample.Web.Filters;
 using MvcSample.Web.Services;
+using System.Linq;
 
 #if NET45 
 using Autofac;
 using Microsoft.Framework.DependencyInjection.Autofac;
+using Castle.Windsor;
+using Microsoft.Framework.DependencyInjection.Windsor;
 using Microsoft.Framework.OptionsModel;
+using Castle.MicroKernel.Lifestyle;
 #endif
 
 namespace MvcSample.Web
@@ -25,33 +29,53 @@ namespace MvcSample.Web
 
             string diSystem;
 
-            if (configuration.TryGet("DependencyInjection", out diSystem) && 
-                diSystem.Equals("AutoFac", StringComparison.OrdinalIgnoreCase))
+            if (configuration.TryGet("DependencyInjection", out diSystem))
             {
-                app.UseMiddleware<MonitoringMiddlware>();
-
                 var services = new ServiceCollection();
+
+                var defaultServices = Microsoft.AspNet.Hosting.HostingServices.GetDefaultServices();
+                foreach (var defaultService in defaultServices)
+                {
+                    services.Add(defaultService);
+                }
 
                 services.AddMvc();
                 services.AddSingleton<PassThroughAttribute>();
                 services.AddSingleton<UserNameService>();
-                services.AddTransient<ITestService, TestService>();                
+                services.AddTransient<ITestService, TestService>();
                 services.Add(OptionsServices.GetDefaultServices());
 
-                // Create the autofac container 
-                ContainerBuilder builder = new ContainerBuilder();
+                if (diSystem.Equals("AutoFac", StringComparison.OrdinalIgnoreCase))
+                {
+                    app.UseMiddleware<MonitoringMiddlware>();
 
-                // Create the container and use the default application services as a fallback 
-                AutofacRegistration.Populate(
-                    builder,
-                    services,
-                    fallbackServiceProvider: app.ApplicationServices);
+                    ContainerBuilder builder = new ContainerBuilder();
 
-                builder.RegisterModule<MonitoringModule>();
+                    AutofacRegistration.Populate(
+                     builder,
+                     services,
+                     fallbackServiceProvider: app.ApplicationServices);
 
-                IContainer container = builder.Build();
+                    builder.RegisterModule<MonitoringModule>();
 
-                app.UseServices(container.Resolve<IServiceProvider>());
+                    var container = builder.Build();
+
+                    app.UseServices(container.Resolve<IServiceProvider>());
+                }
+                else if(diSystem.Equals("Windsor", StringComparison.OrdinalIgnoreCase))
+                {
+                    var container = new WindsorContainer();
+                    WindsorRegistration.Populate(container, services, app.ApplicationServices);
+                    var sp = container.Resolve<IServiceProvider>();
+
+                    container.BeginScope();
+
+                    app.UseServices(sp);
+                }
+                else
+                {
+                    throw new ArgumentException("Unknown dependency injection container: " + diSystem);
+                }
             }
             else
 #endif
